@@ -29,6 +29,7 @@ input {
 .item {
     position: absolute;
     overflow: hidden;
+    height: 20px;
 }
 
 .row {

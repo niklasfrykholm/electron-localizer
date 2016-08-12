@@ -5,13 +5,12 @@ const ipc = require('electron').ipcRenderer;
 const sjson = require('./js/sjson');
 
 window.data = window.data || {
-    languageKeys: ["en", "fr", "sw"],
-    languageNames: ["English", "French", "Swedish"],
-
     keys: ["file", "edit", "view", "selection", "find", "packages", "help"],
     notes: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
-    translationsEn: ["File", "Edit", "View", "Selection", "Find", "Packages", "Help"],
-    translationsSw: ["Arkiv", "Redigera", "Visa", "Markering", "Sök", "Paket", "Hjälp"],
+    translations: {
+        en: ["File", "Edit", "View", "Selection", "Find", "Packages", "Help"],
+        sw:  ["Arkiv", "Redigera", "Visa", "Markering", "Sök", "Paket", "Hjälp"],
+    },
     statuses: [],
 };
 
@@ -20,7 +19,7 @@ window.state = window.state || {
     rowHeight: 25,
     columnXs: [10, 210, 410, 610, 810],
     columnWidths: [200, 200, 200, 200, null],
-    columns: ["keys", "notes", "translationsEn", "translationsSw", "statuses"],
+    translateTo: "sw",
     index: []
 }
 
@@ -79,9 +78,10 @@ function finishEdit()
             state.grid[i][4] = body.appendChild( e("p", {className: "item", left: col[4] + "px", top: y + "px"}) );
         }
 
-        const text = data[state.columns[col]][state.index[row]];
+        var colData = [data.keys, data.notes, data.translations.en, data.translations[state.translateTo], data.statuses];
+        const text = colData[col][state.index[row]] || "";
         if (value != text) {
-            data[state.columns[col]][state.index[row]] = value;
+            colData[col][state.index[row]] = value;
             let e = state.grid[row][col];
             if (e.firstChild) e.removeChild(e.firstChild);
             e.appendChild(document.createTextNode(value));
@@ -113,7 +113,8 @@ function edit(col, row)
     const y = state.yOffset + state.rowHeight * row;
     const width = state.columnWidths[col] - 8;
     const height = state.rowHeight - 5;
-    const text = data[ state.columns[col] ][state.index[row]] || "";
+    var colData = [data.keys, data.notes, data.translations.en, data.translations[state.translateTo], data.statuses];
+    const text = colData[col][state.index[row]] || "";
     state.edit = e("input", {attributes: {type: "text", value: text},
         position: "absolute", "left": x + "px", "top": y + "px",
         width: width + "px", height: height + "px", marginTop: "-2px",
@@ -156,32 +157,26 @@ function render()
     const body = document.getElementsByTagName("body")[0];
     while (body.lastChild) body.removeChild(body.lastChild);
 
-    let keys = window.data["keys"];
-    let notes = window.data["notes"];
-    let translationsEn = window.data["translationsEn"];
-    let translationsSw = window.data["translationsSw"];
-    let statuses = window.data["statuses"];
+    let data = window.data;
     let state = window.state;
 
+    // Sort keys alphabetically
     let index = state.index;
-    for (let i=0; i<keys.length; ++i)
+    for (let i=0; i<data.keys.length; ++i)
         index[i] = i;
-    index.sort( (a,b) => keys[a] > keys[b] ? 1 : keys[a] < keys[b] ? -1 : 0 );
+    index.sort( (a,b) => data.keys[a] > data.keys[b] ? 1 : data.keys[a] < data.keys[b] ? -1 : 0 );
+
+    var colHeaders = ["Code", "Note", "English (en)", state.translateTo, "Status"];
+    var colData = [data.keys, data.notes, data.translations.en, data.translations[state.translateTo], data.statuses];
 
     let col = state.columnXs;
     let width = state.columnWidths;
     const rowHeight = state.rowHeight;
+    for (let i=0; i<colHeaders.length; ++i)
     {
         let y = 10;
-        body.appendChild( e("p", {text: "Key", className: "header", left: col[0] + "px", top: y + "px", width: "180px"}) );
-        body.appendChild( e("div", {className: "column", left: col[1] + "px", top: y + "px"}) );
-        body.appendChild( e("p", {text: "Note", className: "header", left: col[1] + "px", top: y + "px"}) );
-        body.appendChild( e("div", {className: "column", left: col[2] + "px", top: y + "px"}) );
-        body.appendChild( e("p", {text: "English (en)", className: "header", left: col[2] + "px", top: y + "px"}) );
-        body.appendChild( e("div", {className: "column", left: col[3] + "px", top: y + "px"}) );
-        body.appendChild( e("p", {text: "Swedish (sv)", className: "header", left: col[3] + "px", top: y + "px"}) );
-        body.appendChild( e("div", {className: "column", left: col[4] + "px", top: y + "px"}) );
-        body.appendChild( e("p", {text: "Status", className: "header", left: col[4] + "px", top: y + "px"}) );
+        body.appendChild( e("p", {text: colHeaders[i], className: "header", left: col[i] + "px", top: y + "px"}) );
+        body.appendChild( e("div", {className: "column", left: col[i] + "px", top: y + "px"}) );
     }
     
     let y = state.yOffset;
@@ -190,12 +185,11 @@ function render()
         state.grid[i] = []
         let idx = index[i]
         body.appendChild( e("div", {className: "row", left: col[0] + "px", top: y + "px"}) );
-        
-        state.grid[i][0] = body.appendChild( e("p", {text: keys[idx], className: "item", left: col[0] + "px", top: y + "px", width: width[0]-10 + "px"}) );
-        state.grid[i][1] = body.appendChild( e("p", {text: notes[idx] || "", className: "item", left: col[1] + "px", top: y + "px", width: width[1]-10 + "px"}) );
-        state.grid[i][2] = body.appendChild( e("p", {text: translationsEn[idx] || "", className: "item", left: col[2] + "px", top: y + "px", width: width[2]-10 + "px"}) );
-        state.grid[i][3] = body.appendChild( e("p", {text: translationsSw[idx] || "", className: "item", left: col[3] + "px", top: y + "px", width: width[3]-10 + "px"}) );
-        state.grid[i][4] = body.appendChild( e("p", {text: statuses[idx] || "", className: "item", left: col[4] + "px", top: y + "px", width: width[4]-10 + "px"}) );
+
+        for (let c = 0; c < colData.length; ++c) {
+            state.grid[i][c] = body.appendChild( e("p", {text: colData[c][idx] || "", className: "item", 
+                left: col[c] + "px", top: y + "px", width: width[c]-10 + "px"}) );
+        }
         y = y + rowHeight;
     }
     body.appendChild( e("div", {className: "row", left: col[0] + "px", top: y + "px"}) );
@@ -222,13 +216,12 @@ function openFile(path)
         let data = window.data;
         data.keys = [];
         data.notes = [];
-        data.translationsEn = [];
-        data.translationsSw = [];
+        data.translations = {en: [], sw: []};
         data.statuses = [];
 
         for (let key of Object.keys(obj)) {
             data.keys.push(key);
-            data.translationsEn.push(obj[key]);
+            data.translations.en.push(obj[key]);
         }
 
         render();
