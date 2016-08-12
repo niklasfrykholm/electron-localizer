@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require('fs');
+const path = require('path');
 const ipc = require('electron').ipcRenderer;
 const sjson = require('./js/sjson');
 
@@ -9,7 +10,7 @@ window.data = window.data || {
     notes: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
     translations: {
         en: ["File", "Edit", "View", "Selection", "Find", "Packages", "Help"],
-        sw:  ["Arkiv", "Redigera", "Visa", "Markering", "Sök", "Paket", "Hjälp"],
+        fr:  ["Arkiv", "Redigera", "Visa", "Markering", "Sök", "Paket", "Hjälp"],
     },
     statuses: [],
 };
@@ -19,7 +20,7 @@ window.state = window.state || {
     rowHeight: 25,
     columnXs: [10, 210, 410, 610, 810],
     columnWidths: [200, 200, 200, 200, null],
-    translateTo: "sw",
+    translateTo: "fr",
     index: []
 }
 
@@ -167,7 +168,7 @@ function render()
     index.sort( (a,b) => data.keys[a] > data.keys[b] ? 1 : data.keys[a] < data.keys[b] ? -1 : 0 );
 
     var colHeaders = ["Code", "Note", "English (en)", state.translateTo, "Status"];
-    var colData = [data.keys, data.notes, data.translations.en, data.translations[state.translateTo], data.statuses];
+    var colData = [data.keys, data.notes, data.translations.en, data.translations[state.translateTo] || [], data.statuses];
 
     let col = state.columnXs;
     let width = state.columnWidths;
@@ -208,24 +209,38 @@ function render()
     edit(0,0);
 }
 
-function openFile(path)
+function openFile(file)
 {
-    fs.readFile(path, (err, buffer) => {
-        if (err) {console.log(err); return;}
+    let data = window.data;
+    data.keys = [];
+    data.notes = [];
+    data.translations = {en: []};
+    data.statuses = [];
+
+    var buffer = fs.readFileSync(file);
+    const obj = sjson.parse(buffer);
+    for (let key of Object.keys(obj)) {
+        data.keys.push(key);
+        data.translations.en.push(obj[key]);
+    }
+
+    let base = path.basename(file, ".strings");
+    let languages = ['br-pt', 'de', 'es', 'fr', 'pl', 'ru', 'tr'];
+
+    for (let i=0; i<languages.length; ++i) {
+        let lang = languages[i];
+        let langFile = path.join(path.dirname(file), base + "." + lang + ".strings");
+        if (!fs.existsSync(langFile)) continue;
+        
+        var buffer = fs.readFileSync(langFile);
+        data.translations[lang] = []
         const obj = sjson.parse(buffer);
-        let data = window.data;
-        data.keys = [];
-        data.notes = [];
-        data.translations = {en: [], sw: []};
-        data.statuses = [];
-
         for (let key of Object.keys(obj)) {
-            data.keys.push(key);
-            data.translations.en.push(obj[key]);
+            data.translations[lang].push(obj[key]);
         }
+    }
 
-        render();
-    });
+    render();
 }
 
 ipc.on('open-file', (e,a) => {openFile(a.file);});
