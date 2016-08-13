@@ -15,14 +15,14 @@ var mainWindow = null;
 app.on('window-all-closed', function() {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
-  if (process.platform != 'darwin') {
+  //if (process.platform != 'darwin') {
     app.quit();
-  }
+  //}
 });
 
 function openFile(window)
 {
-    dialog.showOpenDialog({filters: [{name: 'Strings', extensions: ['strings']}]}, 
+    dialog.showOpenDialog({filters: [{name: 'Strings', extensions: ['strings']}]},
         (files) => files && files[0] && window.webContents.send('open-file', {file: files[0]})
     );
 }
