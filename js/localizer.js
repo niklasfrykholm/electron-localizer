@@ -71,7 +71,7 @@ function finishEdit()
 
             state.grid[i] = [];
             body.appendChild( e("div", {className: "row", left: col[0] + "px", top: y + "px"}) );
-        
+
             state.grid[i][0] = body.appendChild( e("p", {text: data.keys[idx], className: "item", left: col[0] + "px", top: y + "px"}) );
             state.grid[i][1] = body.appendChild( e("p", {className: "item", left: col[1] + "px", top: y + "px"}) );
             state.grid[i][2] = body.appendChild( e("p", {className: "item", left: col[2] + "px", top: y + "px"}) );
@@ -108,15 +108,21 @@ function edit(col, row)
     if (row > state.index.length) row = state.index.length;
     if (row == state.index.length)
         col = 0;
-    
+
     state.selection = {col: col, row: row};
     const x = state.columnXs[col] - 7;
     const y = state.yOffset + state.rowHeight * row;
-    const width = state.columnWidths[col] - 8;
-    const height = state.rowHeight - 5;
+    let width = state.columnWidths[col] - 8;
+    let height = state.rowHeight - 5;
     var colData = [data.keys, data.notes, data.translations.en, data.translations[state.translateTo], data.statuses];
     const text = colData[col][state.index[row]] || "";
-    state.edit = e("input", {attributes: {type: "text", value: text},
+    const lineBreaks = text.split("\n").length - 1;
+    if (lineBreaks > 0 || text.length * 10 > width) {
+        width = width * 2;
+        height = state.rowHeight * (lineBreaks + text.length * 10 / width);
+    }
+
+    state.edit = e("textarea", {attributes: {value: text},
         position: "absolute", "left": x + "px", "top": y + "px",
         width: width + "px", height: height + "px", marginTop: "-2px",
         paddingLeft: "5px"});
@@ -132,8 +138,13 @@ function edit(col, row)
             else
                 col < 3 ? edit(col+1, row) : edit(0, row+1);
         }
-        else if (e.keyCode == 13) {
+        else if (e.keyCode == 13 && !e.altKey) {
             edit(col, e.shiftKey ? row-1 : row+1);
+        }
+        else if (e.keyCode == 13) {
+            const h = parseInt(state.edit.style.height);
+            state.edit.style.height = (h + state.rowHeight) + "px";
+            return;
         }
         else if (e.keyCode == 39) {
             edit(col+1, row);
@@ -150,6 +161,10 @@ function edit(col, row)
         else
             return;
         e.preventDefault();
+    };
+    state.edit.onmousedown = (e) => {
+        console.log("edit mouse down");
+        return;
     };
 }
 
@@ -179,7 +194,7 @@ function render()
         body.appendChild( e("p", {text: colHeaders[i], className: "header", left: col[i] + "px", top: y + "px"}) );
         body.appendChild( e("div", {className: "column", left: col[i] + "px", top: y + "px"}) );
     }
-    
+
     let y = state.yOffset;
     state.grid = []
     for (let i = 0; i < index.length; ++i) {
@@ -188,7 +203,7 @@ function render()
         body.appendChild( e("div", {className: "row", left: col[0] + "px", top: y + "px"}) );
 
         for (let c = 0; c < colData.length; ++c) {
-            state.grid[i][c] = body.appendChild( e("p", {text: colData[c][idx] || "", className: "item", 
+            state.grid[i][c] = body.appendChild( e("p", {text: colData[c][idx] || "", className: "item",
                 left: col[c] + "px", top: y + "px", width: width[c]-10 + "px"}) );
         }
         y = y + rowHeight;
@@ -202,8 +217,10 @@ function render()
             if (e.clientX > state.columnXs[i])
                 col = i;
         }
-        edit(col, row);
-        e.preventDefault();
+        if (!state.selection || state.selection.col != col || state.selection.row != row) {
+            edit(col, row);
+            e.preventDefault();
+        }
     };
 
     edit(0,0);
@@ -231,7 +248,7 @@ function openFile(file)
         let lang = languages[i];
         let langFile = path.join(path.dirname(file), base + "." + lang + ".strings");
         if (!fs.existsSync(langFile)) continue;
-        
+
         var buffer = fs.readFileSync(langFile);
         data.translations[lang] = []
         const obj = sjson.parse(buffer);
